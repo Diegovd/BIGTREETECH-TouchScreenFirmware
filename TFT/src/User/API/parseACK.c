@@ -27,6 +27,8 @@ const ECHO knownEcho[] = {
   {ECHO_NOTIFY_NONE, "echo:;"},                   // M503
   {ECHO_NOTIFY_NONE, "echo:  G"},                 // M503
   {ECHO_NOTIFY_NONE, "echo:  M"},                 // M503
+  {ECHO_NOTIFY_TOAST, "echo:Active Mesh"},        // M503
+  {ECHO_NOTIFY_TOAST, "echo:EEPROM can"},         // M503
   {ECHO_NOTIFY_NONE, "Cap:"},                     // M115
   {ECHO_NOTIFY_NONE, "Config:"},                  // M360
   {ECHO_NOTIFY_TOAST, "Settings Stored"},         // M500
@@ -248,7 +250,7 @@ bool processKnownEcho(void)
   }
 
   // display the busy indicator
-  busyIndicator(STATUS_BUSY);
+  busyIndicator(SYS_STATUS_BUSY);
 
   if (isKnown)
   {
@@ -298,11 +300,11 @@ void hostActionCommands(void)
       }
     }
   }
-  else if (ack_seen(":print_start"))  // print started from remote host (e.g. USB, Octoprint etc...)
+  else if (ack_seen(":print_start"))  // print started from remote host (e.g. OctoPrint etc...)
   {
     startRemotePrint(NULL);  // start print and open Printing menu
   }
-  else if (ack_seen(":print_end"))  // print ended from remote host (e.g. USB, Octoprint etc...)
+  else if (ack_seen(":print_end"))  // print ended from remote host (e.g. OctoPrint etc...)
   {
     printEnd();
   }
@@ -316,7 +318,7 @@ void hostActionCommands(void)
       //  hostDialog = false;     // enable Resume/Pause button in the Printing menu
     }
 
-    setPrintPause(false, PAUSE_EXTERNAL);
+    setPrintPause(HOST_STATUS_PAUSING, PAUSE_EXTERNAL);
 
     if (ack_seen("filament_runout"))
     {
@@ -327,7 +329,7 @@ void hostActionCommands(void)
   {
     hostDialog = false;  // enable Resume/Pause button in the Printing menu
 
-    setPrintResume(true);
+    setPrintResume(HOST_STATUS_PRINTING);
   }
   else if (ack_seen(":cancel"))  // to be added to Marlin abortprint routine
   {
@@ -341,11 +343,11 @@ void hostActionCommands(void)
 
     if (ack_seen("Nozzle Parked"))
     {
-      setPrintPause(false, PAUSE_EXTERNAL);
+      setPrintPause(HOST_STATUS_PAUSING, PAUSE_EXTERNAL);
     }
-    else if (ack_seen("Resuming"))  // resuming from TFT or (remote) onboard media
+    else if (ack_seen("Resuming"))  // resuming from TFT media or (remote) onboard media
     {
-      setPrintResume(true);
+      setPrintResume(HOST_STATUS_PRINTING);
 
       hostAction.prompt_show = false;
       Serial_Puts(SERIAL_PORT, "M876 S0\n");  // auto-respond to a prompt request that is not shown on the TFT
@@ -426,18 +428,19 @@ void parseACK(void)
       }
       else if (infoMachineSettings.firmwareType == FW_NOT_DETECTED)  // if never connected to the printer since boot
       {
-        storeCmd("M503\n");  // query detailed printer capabilities
-        storeCmd("M92\n");   // steps/mm of extruder is an important parameter for Smart filament runout
-                             // avoid can't getting this parameter due to disabled M503 in Marlin
-        storeCmd("M211\n");  // retrieve the software endstops state
-        storeCmd("M115\n");  // as last command to identify the FW type!
+        storeCmd("M503\n");    // query detailed printer capabilities
+        storeCmd("M92\n");     // steps/mm of extruder is an important parameter for Smart filament runout
+                               // avoid can't getting this parameter due to disabled M503 in Marlin
+        storeCmd("M211\n");    // retrieve the software endstops state
+        storeCmd("M115\n");    // as last command to identify the FW type!
+        storeCmd("M401 H\n");  // check the state of BLTouch HighSpeed mode
       }
 
       infoHost.connected = true;
       requestCommandInfo.inJson = false;
     }
 
-    // onboard media Gcode command response
+    // onboard media gcode command response
 
     if (requestCommandInfo.inWaitResponse)
     {
@@ -501,7 +504,7 @@ void parseACK(void)
       requestCommandInfo.inJson = false;
       goto parse_end;
     }
-    // onboard media Gcode command response end
+    // onboard media gcode command response end
 
     if (!requestCommandInfo.inWaitResponse && !requestCommandInfo.inResponse && infoMachineSettings.firmwareType == FW_REPRAPFW)
     {
@@ -648,42 +651,42 @@ void parseACK(void)
         }
         hasFilamentData = true;
       }
+      // parse and store M23, select SD file
       else if (infoMachineSettings.onboardSD == ENABLED && ack_seen("File opened:"))
       {
-        char * fileEndString;
-
-        // Marlin
-        fileEndString = " Size:";  // File opened: 1A29A~1.GCO Size: 6974
+        char file_name[MAX_PATH_LEN];
+        char * end_string = " Size:";  // File opened: 1A29A~1.GCO Size: 6974
 
         uint16_t start_index = ack_index;
-        uint16_t end_index = ack_continue_seen(fileEndString) ? (ack_index - strlen(fileEndString)) : start_index;
-        uint16_t path_len = MIN(end_index - start_index, MAX_PATH_LEN - strlen(getCurFileSource()) - 1);
-        char file_name[MAX_PATH_LEN];
-        sprintf(file_name, "%s/", getCurFileSource());
-        strncat(file_name, dmaL2Cache + start_index, path_len);
-        file_name[path_len + strlen(getCurFileSource()) + 1] = '\0';
+        uint16_t end_index = ack_continue_seen(end_string) ? (ack_index - strlen(end_string)) : start_index;
+        uint16_t path_len = MIN(end_index - start_index, MAX_PATH_LEN - 1);
+
+        memcpy(file_name, dmaL2Cache + start_index, path_len);
+        file_name[path_len] = '\0';
 
         startRemotePrint(file_name);  // start print and open Printing menu
       }
+      // parse and store M27
       else if (infoMachineSettings.onboardSD == ENABLED &&
-               infoFile.source >= BOARD_MEDIA && infoFile.source <= BOARD_MEDIA_REMOTE &&
+               infoFile.source >= FS_BOARD_MEDIA && infoFile.source <= FS_BOARD_MEDIA_REMOTE &&
                ack_seen("Not SD printing"))  // if printing from (remote) onboard media
       {
-        setPrintPause(true, PAUSE_EXTERNAL);
+        setPrintPause(HOST_STATUS_PAUSED, PAUSE_EXTERNAL);
       }
       else if (infoMachineSettings.onboardSD == ENABLED &&
-               infoFile.source >= BOARD_MEDIA && infoFile.source <= BOARD_MEDIA_REMOTE &&
+               infoFile.source >= FS_BOARD_MEDIA && infoFile.source <= FS_BOARD_MEDIA_REMOTE &&
                ack_seen("SD printing byte"))  // if printing from (remote) onboard media
       {
-        setPrintResume(false);
+        setPrintResume(HOST_STATUS_RESUMING);
 
         // parsing printing data
         // format: SD printing byte <XXXX>/<YYYY> (e.g. SD printing byte 123/12345)
         setPrintProgress(ack_value(), ack_second_value());
         //powerFailedCache(position);
       }
+      // parse and store M24, printing from (remote) onboard media completed
       else if (infoMachineSettings.onboardSD == ENABLED &&
-               infoFile.source >= BOARD_MEDIA && infoFile.source <= BOARD_MEDIA_REMOTE &&
+               infoFile.source >= FS_BOARD_MEDIA && infoFile.source <= FS_BOARD_MEDIA_REMOTE &&
                ack_seen("Done printing file"))  // if printing from (remote) onboard media
       {
         printEnd();
@@ -797,18 +800,6 @@ void parseACK(void)
       {
         meshUpdateData(dmaL2Cache);  // update mesh data
       }
-      // parse and store M420 V1 T1 or M420 Sxx or M503, ABL state (e.g. from Bed Leveling menu)
-      else if (ack_seen("echo:Bed Leveling"))
-      {
-        if (ack_continue_seen("ON"))
-          setParameter(P_ABL_STATE, 0, ENABLED);
-        else
-          setParameter(P_ABL_STATE, 0, DISABLED);
-      }
-      else if (ack_seen("echo:Fade Height"))
-      {
-        setParameter(P_ABL_STATE, 1, ack_value());
-      }
       // parse and store M420 V1 T1 or G29 S0 (mesh. Z offset:) or M503 (G29 S4 Zxx), MBL Z offset value (e.g. from Babystep menu)
       else if (ack_seen("mesh. Z offset:") || ack_seen("G29 S4 Z"))
       {
@@ -868,10 +859,8 @@ void parseACK(void)
 
         if (infoMachineSettings.firmwareType == FW_SMOOTHIEWARE)
         {
-          if (getParameter(P_FILAMENT_DIAMETER, 1) > 0.01f)
-            setParameter(P_FILAMENT_DIAMETER, 0, 1);  // filament_diameter>0.01 to enable  volumetric extrusion
-          else
-            setParameter(P_FILAMENT_DIAMETER, 0, 0);  // filament_diameter<=0.01 to disable volumetric extrusion
+          // filament_diameter > 0.01 to enable volumetric extrusion. Otherwise (<= 0.01), disable volumetric extrusion
+          setParameter(P_FILAMENT_DIAMETER, 0, getParameter(P_FILAMENT_DIAMETER, 1) > 0.01f ? 1 : 0);
         }
       }
       // parse and store max acceleration (units/s2)
@@ -1028,6 +1017,10 @@ void parseACK(void)
       {
         uint8_t i = (ack_seen("T")) ? ack_value() : 0;
         if (ack_seen("K")) setParameter(P_LIN_ADV, i, ack_value());
+      }
+      else if (ack_seen("Advance K="))  // newest Marlin (e.g. 2.0.9.3) returns this ACK for M900 command
+      {
+        setParameter(P_LIN_ADV, heatGetCurrentTool(), ack_value());
       }
       // parse and store stepper motor current
       else if (ack_seen("M906"))
@@ -1210,14 +1203,28 @@ void parseACK(void)
       // parse echo messages
       else if (ack_seen(magic_echo))
       {
-        if (!processKnownEcho())  // if no known echo was found and processed, then popup the echo message
+        // parse and store M401 H, BLTouch HighSpeed mode
+        if (ack_continue_seen("BLTouch HS mode"))
+        {
+          setHSmode(ack_continue_seen("ON") ? HS_ON : HS_OFF);
+        }
+        // parse and store M420 V1 T1 or M420 Sxx or M503, ABL state (e.g. from Bed Leveling menu)
+        else if (ack_continue_seen("Bed Leveling"))
+        {
+          setParameter(P_ABL_STATE, 0, ack_continue_seen("ON") ? ENABLED : DISABLED);
+        }
+        else if (ack_continue_seen("Fade Height"))
+        {
+          setParameter(P_ABL_STATE, 1, ack_value());
+        }
+        else if (!processKnownEcho())  // if no known echo was found and processed, then popup the echo message
         {
           ackPopupInfo(magic_echo);
         }
       }
       else if (infoMachineSettings.firmwareType == FW_SMOOTHIEWARE)
       {
-        if (ack_seen("ZProbe triggered before move"))  // smoothieboard ZProbe triggered before move, aborting command.
+        if (ack_seen("ZProbe triggered before move"))  // smoothieboard ZProbe triggered before move, aborting command
         {
           ackPopupInfo("ZProbe triggered before move.\nAborting Print!");
         }
@@ -1225,16 +1232,14 @@ void parseACK(void)
         else if (ack_seen("Volumetric extrusion is disabled"))
         {
           setParameter(P_FILAMENT_DIAMETER, 0, 0);
-          setParameter(P_FILAMENT_DIAMETER, 1, 0.0F);
+          setParameter(P_FILAMENT_DIAMETER, 1, 0.0f);
         }
         // parse and store volumetric extrusion M200 response of Smoothieware
         else if (ack_seen("Filament Diameter:"))
         {
           setParameter(P_FILAMENT_DIAMETER, 1, ack_value());
-          if (getParameter(P_FILAMENT_DIAMETER, 1) > 0.01F)
-            setParameter(P_FILAMENT_DIAMETER, 0, 1);  // filament_diameter > 0.01 to enable  volumetric extrusion
-          else
-            setParameter(P_FILAMENT_DIAMETER, 0, 0);  // filament_diameter <= 0.01 to disable volumetric extrusion
+          // filament_diameter > 0.01 to enable volumetric extrusion. Otherwise (<= 0.01), disable volumetric extrusion
+          setParameter(P_FILAMENT_DIAMETER, 0, getParameter(P_FILAMENT_DIAMETER, 1) > 0.01f ? 1 : 0);
         }
       }
     }
