@@ -1,7 +1,7 @@
 #ifndef _CONFIGURATION_H_
 #define _CONFIGURATION_H_
 
-#define CONFIG_VERSION 20220124
+#define CONFIG_VERSION 20220518
 
 //====================================================================================================
 //=============================== Settings Configurable On config.ini ================================
@@ -13,7 +13,7 @@
 
 /**
  * Serial Ports (Primary and Supplementary)
- * Serial ports connected to devices such as Printer, ESP3D, OctoPrint, other TFTs etc.
+ * Serial ports connected to devices such as Printer, ESP3D, OctoPrint and other Controllers.
  * In order to successfully establish a communication through a serial port, set a baudrate
  * matching the baudrate configured on the connected device.
  * Disable the serial port when it is not in use and/or not connected to a device (floating) to
@@ -21,7 +21,7 @@
  *
  * NOTES:
  *   - Serial port P1 is the primary serial connection to the printer and cannot be disabled.
- *   - A baudrate of 250000 works in most cases, but you might try a lower speed if you
+ *   - A baudrate of 250000 works in most cases, but you can try a lower speed if you
  *     commonly experience drop-outs during host printing.
  *     You may try up to 1000000 to speed up SD file transfer.
  *
@@ -55,7 +55,7 @@
 /**
  * Emulated M109 And M190
  * The TFT intercepts the blocking M109 and M190 G-codes (set target hotend and bed temperatures)
- * and converts them to the non blocking M104 and M140 G-codes respectively.
+ * and converts them to the non-blocking M104 and M140 G-codes respectively.
  *
  * NOTE: Enable it so the TFT can still communicate with Marlin firmware even if the target
  *       temperature is not reached yet. Otherwise the communication (TFT<->Marlin) will be
@@ -214,8 +214,8 @@
 #define PERSISTENT_INFO 0  // Default: 0
 
 /**
- * Temperature ACK In Terminal
- * Show temperature ACK in Terminal menu.
+ * Temperature And Wait ACK In Terminal
+ * Show "temperature" and "wait" ACK in Terminal menu.
  *   Options: [disable: 0, enable: 1]
  */
 #define TERMINAL_ACK 0  // Default: 0
@@ -233,6 +233,25 @@
  *   Options: [disable: 0, enable: 1]
  */
 #define NOTIFICATION_M117 0  // Default: 0
+
+/** 
+ * Progress Source
+ * This sets the source of the progress calculation, gcode file advance based or time based.
+ *   In file mode it is a simple file progress, it tells you the percentage of the gcodes
+ * executed. It doesn't reflect the amount of work done, only in a very few cases (ex. a 2D
+ * shape expanded vertically like a cylinder, cube, etc)
+ *   Time based mode is very close to the real amount of work done, but it is still not perfect,
+ * it relies on the estimate the slicer has done. It needs info from the slicer, the elapsed
+ * time or the remaining time, if it's missing, the progress source defaults to file progress
+ * mode. If no "M73 R" is present in the gcode file than it requires "file_comment_parsing" to
+ * be enabled.
+ *
+ * NOTE: If "M73 P" is present in the gcode file than file or time based progress will be
+ *       overriden by that.
+ *
+ *   Options: [File progress mode: 0, Time based progress: 1]
+ */
+#define PROG_SOURCE 1
 
 /**
  * Progress Numeric Display Mode During Print
@@ -275,22 +294,6 @@
  *   Options: [Layer height: 0, Layer number: 1, Both - height & number: 2]
  */
 #define LAYER_DISP_TYPE 0  // Default: 0
-
-/**
- * Show Bootscreen at Power On - Setting in Config.ini
- *This setting allows to show (or not) the BigTreeTech Bootscreen Logo at Power On
- *
- *   Options: [No: 0, Yes: 1]
- */
-#define SHOW_BOOTSCREEN 1  // Default: 1
-
-/**
- * Alerts that Heaters are still on - Setting in Config.ini
- * This setting allows to show (or not) the alerts that heaters are still on when leaving some menus
- *
- *  Options: [No: 0, Yes: 1]
- */
-#define ALERT_HEATERS_ON 1  // Default: 1
 
 //================================================================================
 //============================= Marlin Mode Settings =============================
@@ -576,25 +579,27 @@
  * Leveling Settings
  * These settings are used for leveling.
  *
- * Leveling Edge Distance (Manual Leveling)
+ * Leveling Edge Distance (Manual Leveling, Leveling Corner)
  * Inset distance from bed edges. This distance is added to minimum X & Y bed coordinates and
  * subtracted from maximum X & Y bed coordinates to calculate manual leveling points.
+ * For Leveling Corner, the default distance is the maximum between this setting value and
+ * the rounded probe offset X/Y values configured in Marlin firmware.
  *   Unit: [distance in mm]
  *   Value range: [min: 0, max: 2000]
  *
- * Leveling Z Position (Manual Leveling, Mesh Leveling, Probe/Home Offset, Mesh Tuner)
+ * Leveling Z Position (Manual Leveling, Leveling Corner, Mesh Leveling, Probe/Home Offset, Mesh Tuner)
  * For Manual Leveling and MBL, lower Z axis to this absolute position after reaching a leveling point.
  * For Probe/Home Offset and ABL in Mesh Tuner, raise Z axis by this relative position after reaching
  * a leveling point.
  *   Unit: [position in mm]
  *   Value range: [min: 0.0, max: 2000.0]
  *
- * Leveling Z Raise (Manual Leveling, Mesh Leveling)
+ * Leveling Z Raise (Manual Leveling, Leveling Corner, Mesh Leveling)
  * Raise Z axis by this relative value before moving to another point during leveling/probing procedures.
  *   Unit: [distance in mm]
  *   Value range: [min: 0.0, max: 2000.0]
  *
- * Leveling Feed Rate (Manual Leveling, Mesh Leveling)
+ * Leveling Feed Rate (Manual Leveling, Leveling Corner, Mesh Leveling)
  * Feedrate to use when moving an axis during leveling/probing procedures.
  *   Format: [level_feedrate: XY<feedrate> Z<feedrate>]
  *   Unit: [feedrate in mm/min]
@@ -607,8 +612,8 @@
 #define LEVELING_Z_FEEDRATE     6000  // (mm/min) Z axis move feedrate (Default: 6000)
 
 /**
- * Inverted Axes (Manual Leveling, Move, Probe Offset)
- * Used by Manual Leveling, Move and Probe Offset menus in order axis matches the actual axis movement.
+ * Inverted Axes (Manual Leveling, Leveling Corner, Move, Probe Offset)
+ * Used by Manual Leveling, Leveling Corner, Move and Probe Offset menus in order axis matches the actual axis movement.
  *
  * NOTE: The Y axis of different printer (move hotbed or move nozzle) move in different directions.
  *       So Y axis leveling inversion can't follow up inverted_axis[Y_AXIS].
@@ -780,7 +785,7 @@
 
 /**
  * Most suitable for Delta printers since most printers will
- * crash into printed model when homing after powerloss.
+ * crash into printed model when homing after power loss.
  */
 
 /**
@@ -996,7 +1001,7 @@
  * Start, End and Cancel G-code
  * START_GCODE will run before starting a print if "START_GCODE_ENABLED" is enabled.
  * END_GCODE will run after a print is completed if "END_GCODE_ENABLED" is enabled.
- * CANCEL_GCODE will run when a print is canceled if "CANCEL_GCODE_ENABLED" is enabled.
+ * CANCEL_GCODE will run when a print is cancelled if "CANCEL_GCODE_ENABLED" is enabled.
  *   Value range: [min: 3, max: 75 characters]
  */
 #define START_GCODE  "G28 XY R20\n"
@@ -1097,8 +1102,8 @@
 #define SPEED_ID {"Sp.", "Fr."}  // (speed, flow rate)
 
 // Axes names displayed in Parameter Settings menu
-#define AXIS_DISPLAY_ID    {"X", "Y", "Z", "E0", "E1"}                    // (X, Y, Z, E0, E1)
-#define STEPPER_DISPLAY_ID {"X", "X2", "Y", "Y2", "Z", "Z2", "E0", "E1"}  // (X, X2, Y, Y2, Z, Z2, E0, E1)
+#define AXIS_DISPLAY_ID    {"X", "Y", "Z", "E0", "E1"}                                // (X, Y, Z, E0, E1)
+#define STEPPER_DISPLAY_ID {"X", "X2", "Y", "Y2", "Z", "Z2", "Z3", "Z4", "E0", "E1"}  // (X, X2, Y, Y2, Z, Z2, Z3, Z4, E0, E1)
 
 // Manual Leveling
 // Move to four corner points to Leveling manually (Point 1, Point 2, Point 3, Point 4).
@@ -1201,7 +1206,7 @@
 
 /**
  * Rapid Serial Communication
- * More frequent Serial communicaiton while printing.
+ * More frequent Serial communication while printing.
  * Send and parse G-codes more frequently while drawing on screen to
  * prevent printer idling and stuttering due to empty printer buffer.
  *
@@ -1286,10 +1291,10 @@
 #define QUICK_EEPROM_BUTTON  // Default: uncommented (enabled)
 
 /**
- * Toast Notification Duration (in MilliSeconds)
+ * Toast Notification Duration (in seconds)
  * Set the duration for displaying toast notification on top of the screen.
  */
-#define TOAST_DURATION (3 * 1000)  // in ms. Default: 3 * 1000
+#define TOAST_DURATION 3  // in sec. Default: 3
 
 /**
  * Keyboard On Left Side (Mesh Editor, LED Color Custom)
@@ -1352,48 +1357,6 @@
  * Comment to use standard colors.
  */
 //#define LIVE_TEXT_COMMON_COLOR  // Default: commented (disabled)
-
-/**
- * Live Text Background Color Rendering Technique (Printing menu and Status Screen menu)
- * When enabled, it allows to eliminate the flickering on alternating icons avoiding to
- * draw the icon background under the live text area.
- * Furthermore, it allows to use the icon background colors or a sampled icon background
- * uniform color for each live text.
- * When disabled (set to 0), alternating icons are always fully drawn causing some
- * flickering when live text is drawn on top of them.
- * Furthermore, a standard rendering based on the sampling and use, in a pixel by pixel
- * basis, of the underlying icon background colors is used.
- *
- * NOTES:
- *   - Enable it only in case the icons maintain always the same background colors under
- *     the live text areas (e.g. applicable to Unified, Round Miracle etc... menu themes).
- *   - If enabled, it speeds up the rendering of the live text and the responsiveness of
- *     the TFT, so it can improve the print quality.
- *     Suitable in particular for the TFTs with a not fast HW (e.g. 24, 48 MHz).
- *   - If enabled, it allows to eliminate the flickering on alternating icons.
- */
-
-/**
- * Live Text Background Color Rendering Technique (Printing menu)
- *   Value range: [min: 0, max: 2]
- *     0: disabled
- *     1: apply icon background colors to live text
- *     2: apply sampled icon background uniform color to live text
- */
-#define LIVE_TEXT_BG_COLOR_PRINTING 0  // Default: 0 (disabled)
-
-/**
- * Live Text Background Color Rendering Technique (Status Screen menu)
- *   Value range: [min: 0, max: 6]
- *     0: disabled
- *     1: apply icon background colors to live text 1 (name)
- *     2: apply sampled icon background uniform color to live text 1 (name)
- *     3: apply icon background colors to live text 2 (value)
- *     4: apply sampled icon background uniform color to live text 2 (value)
- *     5: apply icon background colors to both live text 1 and live text 2
- *     6: apply sampled icon background uniform color to both live text 1 and live text 2
- */
-#define LIVE_TEXT_BG_COLOR_STATUS 0  // Default: 0 (disabled)
 
 /**
  * Show Embedded Thumbnails Of G-code Files

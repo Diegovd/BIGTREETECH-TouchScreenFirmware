@@ -105,6 +105,11 @@ void coordinateSetAxisActual(AXIS axis, float position)
   curPosition.axis[axis] = position;
 }
 
+void coordinateGetAllActual(COORDINATE *tmp)
+{
+  memcpy(tmp, &curPosition, sizeof(curPosition));
+}
+
 void coordinateQuerySetWait(bool wait)
 {
   coordinateQueryWait = wait;
@@ -146,4 +151,12 @@ void coordinateQueryTurnOff(void)
     storeCmd("M154 S0\n");
     curQuerySeconds = 0;
   }
+}
+
+float coordinateGetAxis(AXIS axis)
+{
+  if (infoFile.source >= FS_ONBOARD_MEDIA)
+    return coordinateGetAxisActual(axis);
+  else
+    return coordinateGetAxisTarget(axis);
 }

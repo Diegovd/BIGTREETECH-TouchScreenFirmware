@@ -74,6 +74,14 @@ Only the TFTs listed below are currently supported. Trying to install the firmwa
     BTT_TFT50_V3.0
     BTT_TFT70_V3.0
 
+**BTT GD TFT**
+
+    BTT_GD_TFT24_V1.1
+    BTT_GD_TFT35_V2.0, V3.0, E3_V3.0 and B1_V3.0
+    BTT_GD_TFT43_V3.0
+    BTT_GD_TFT50_V3.0
+    BTT_GD_TFT70_V3.0
+
 **MKS TFT**
 
     MKS_TFT28_V3.0 and V4.0
@@ -103,7 +111,7 @@ Minimum Marlin firmware version: **2.0.8.1**
 
 Distribution date: **2021-05-15**
 
-</br>In order for the TFT's firmware to be able to provide all of its functionalities/features, the following options must be enabled in Marlin firmware.
+</br>To use all the features and functionalities supported by the TFT, the following options must be enabled in Marlin firmware.
 
 **General options which MUST be activated:**
 
@@ -140,7 +148,7 @@ Distribution date: **2021-05-15**
 **Options to fully support Bed Leveling menu:**
 
 `Z_MIN_PROBE_REPEATABILITY_TEST` (in Configuration.h)<br>
-`G26_MESH_VALIDATION (in Configuration.h)` (in Configuration.h)<br>
+`G26_MESH_VALIDATION` (in Configuration.h)<br>
 `Z_STEPPER_AUTO_ALIGN` (in Configuration_adv.h)<br>
 
 ## Connecting the TFT to the Mainboard
@@ -543,6 +551,7 @@ OctoPrint, ESP3D, Pronterface etc, connected to a TFT's or mainboard's serial po
 | **pause**                   | `M118 A1 P0 action:pause`                                                                                                                                                                                   |
 | **resume**                  | `M118 A1 P0 action:resume`                                                                                                                                                                                  |
 | **time remaining progress** | `M118 A1 P0 action:notification Time Left <XX>h<YY>m<ZZ>s`<br>or<br>`M117 Time Left <XX>h<YY>m<ZZ>s`<br><br>Examples:<br>`M118 A1 P0 action:notification Time Left 02h04m06s`<br>`M117 Time Left 02h04m06s` |
+| **print layer progress**    | `M118 A1 P0 action:notification Layer Left <XXXX>/<YYYY>`<br>or<br>`M117 Layer Left <XXXX>/<YYYY>`<br><br>Examples:<br>`M118 A1 P0 action:notification Layer Left 51/940`<br>`M117 Layer Left 51/940`       |
 | **file data progress**      | `M118 A1 P0 action:notification Data Left <XXXX>/<YYYY>`<br>or<br>`M117 Data Left <XXXX>/<YYYY>`<br><br>Examples:<br>`M118 A1 P0 action:notification Data Left 123/12345`<br>`M117 Data Left 123/12345`     |
 
 When the trigger `print_start` is received, the TFT switches to **Printing** menu.
@@ -550,7 +559,9 @@ Once on Printing menu, the **pause**, **resume** and **stop** buttons on the men
 That means, only the remote host will control the print.
 Only on print end or cancel (with triggers `print_end` or `cancel`) the TFT Printing menu is finalized (statistics available etc.) and unlocked (the menu can be closed).
 
-**NOTE:** A new plugin on OctoPrint implementing the above protocol should be the preferable way (available to everyone).
+**NOTES:**
+- A new plugin on OctoPrint implementing the above protocol should be the preferable way (available to everyone)
+- With the exception of TFT70, the maximum number of displayable layer count is 999 (there's no space to display layer number and count if the layer count is above 999)
 
 ### Adding Gcode Thumbnails
 

@@ -6,9 +6,9 @@ extern "C" {
 #endif
 
 #include <stdbool.h>
-#include "includes.h"
-#include "variants.h"
-#include "ff.h"
+#include <stdint.h>
+#include "variants.h"  // for RAPID_SERIAL_COMM
+#include "main.h"      // for HOST_STATUS
 
 #ifdef RAPID_SERIAL_COMM
   #define RAPID_SERIAL_LOOP() loopBackEnd()
@@ -27,6 +27,13 @@ typedef enum
   PAUSE_EXTERNAL,
 } PAUSE_TYPE;
 
+typedef enum
+{
+  PROG_FILE = 0, // file execution progress ()
+  PROG_TIME,     // time based progress (elapsed/total)
+  PROG_SLICER,   // progress from slicer (M73)
+} PROG_FROM;
+
 typedef struct
 {
   // data
@@ -41,8 +48,6 @@ extern PRINT_SUMMARY infoPrintSummary;
 
 void setExtrusionDuringPause(bool extruded);
 
-bool isHostPrinting(void);  // condition callback for loopProcessToCondition()
-
 void setRunoutAlarmTrue(void);
 void setRunoutAlarmFalse(void);
 bool getRunoutAlarm(void);
@@ -54,14 +59,12 @@ void resumeAndContinue(void);
 void setPrintExpectedTime(uint32_t expectedTime);
 uint32_t getPrintExpectedTime(void);
 
-void setPrintTime(uint32_t elapsedTime);
+void updatePrintTime(uint32_t osTime);
 uint32_t getPrintTime(void);
-void getPrintTimeDetail(uint8_t * hour, uint8_t * min, uint8_t * sec);
 
 void setPrintRemainingTime(int32_t remainingTime);  // used for M73 Rxx and M117 Time Left xx
 void parsePrintRemainingTime(char * buffer);        // used for M117 Time Left xx
 uint32_t getPrintRemainingTime();
-void getPrintRemainingTimeDetail(uint8_t * hour, uint8_t * min, uint8_t * sec);
 
 void setPrintLayerNumber(uint16_t layerNumber);
 uint16_t getPrintLayerNumber();
@@ -74,8 +77,10 @@ uint32_t getPrintCur(void);
 
 void setPrintProgress(float cur, float size);
 void setPrintProgressPercentage(uint8_t percentage);  // used by M73 Pxx
-bool updatePrintProgress(void);
+uint8_t updatePrintProgress(void);
 uint8_t getPrintProgress(void);
+PROG_FROM getPrintProgSource (void);
+void setPrintProgSource(PROG_FROM progressSource);
 
 void setPrintRunout(bool runout);
 bool getPrintRunout(void);
@@ -94,7 +99,10 @@ void printSetUpdateWaiting(bool isWaiting);           // called in interfaceCmd.
 void updatePrintUsedFilament(void);                   // called in PrintingMenu.c
 void clearInfoPrint(void);                            // called in PrintingMenu.c
 
-void printComplete(void);                             // print complete
+//
+// commented because NOT externally invoked
+//
+//void printComplete(void);                           // print complete
 
 // start print originated or handled by remote host
 // (e.g. print started from remote onboard media or hosted by remote host)
@@ -110,15 +118,21 @@ bool printPause(bool isPause, PAUSE_TYPE pauseType);
 
 bool isPrinting(void);
 bool isPaused(void);
+bool isAborted(void);
 bool isTFTPrinting(void);
+bool isHostPrinting(void);
 bool isRemoteHostPrinting(void);
 
+//
+// used for print originated or handled by remote host
+// (e.g. print started from (remote) onboard media or hosted by remote host)
+//
 void setPrintAbort(void);
 void setPrintPause(HOST_STATUS hostStatus, PAUSE_TYPE pauseType);
 void setPrintResume(HOST_STATUS hostStatus);
 
-void loopPrintFromTFT(void);        // called in loopBackEnd(). It handles a print from TFT media, if any
-void loopPrintFromOnboardSD(void);  // called in loopBackEnd(). It handles a print from (remote) onboard media, if any
+void loopPrintFromTFT(void);      // called in loopBackEnd(). It handles a print from TFT media, if any
+void loopPrintFromOnboard(void);  // called in loopBackEnd(). It handles a print from (remote) onboard media, if any
 
 #ifdef __cplusplus
 }
